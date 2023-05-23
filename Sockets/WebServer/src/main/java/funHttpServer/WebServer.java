@@ -18,6 +18,7 @@ package funHttpServer;
 
 import java.io.*;
 import java.net.*;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -78,14 +79,17 @@ class WebServer {
     }
   };
 
-  private Random random = new Random();
+  private final Random random = new Random();
+  private static final SecureRandom rnd = new SecureRandom();
 
+  int length = 6; // default length for password generator
   /**
    * Reads in socket stream and generates a response
    * @param inStream HTTP input stream from socket
    * @return the byte encoded HTTP response
    */
   public byte[] createResponse(InputStream inStream) {
+
 
     byte[] response = null;
     BufferedReader in = null;
@@ -302,6 +306,80 @@ class WebServer {
             response = ("<html>ERROR: " + e.getMessage() + "</html>").getBytes();
           }
         }
+        else if (request.contains("pass?")) {
+          try {
+            // Pulls the parameters from the request
+            Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+            String queryString = request.replace("pass?", "");
+
+            // Check if query parameters are correctly formatted
+            if (queryString == null || queryString.equals("")) {
+              throw new IllegalArgumentException();
+            }
+
+            query_pairs = passQuery(queryString);
+
+            System.out.println("Query Pairs: " + query_pairs); // Debug print statement
+
+            // Validate the length parameter
+            boolean errorOccurred = false;
+            try {
+              String lengthString = query_pairs.get("l");
+              if (lengthString == null || lengthString.equals("")) {
+                length = 6; // Default length
+              } else {
+                length = Integer.parseInt(lengthString);
+              }
+
+              if (length < 6 || length > 24) {
+                response = ("<html>ERROR: Invalid length parameter. It must be an integer between 6 and 24. Using default length 6.</html>").getBytes();
+                length = 6; // Set a default value of 6
+              }
+            } catch (NumberFormatException nfe) {
+              response = ("<html>ERROR: " + nfe.getMessage() + ". Using default length 6.</html>").getBytes();
+              length = 6; // Set a default value of 6
+              errorOccurred = true;
+            }
+
+            // Only proceed if no error has occurred
+            if (!errorOccurred) {
+              // Get the options parameter
+              String opt = query_pairs.getOrDefault("OPT", "");
+
+              // Create the character sets
+              String lowerCase = "abcdefghijklmnopqrstuvwxyz";
+              String upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+              String specialCharacters = "!@#$%^&*()-_=+[]{}|;:,.<>?/~`";
+              String numbers = "0123456789";
+
+              // Remove character sets based on the options
+              String passwordSet = lowerCase;
+              if (!opt.contains("1")) passwordSet += upperCase;
+              if (!opt.contains("2")) passwordSet += specialCharacters;
+              if (!opt.contains("3")) passwordSet += numbers;
+
+              // Check if passwordSet is empty, if so, return an error response
+              if (passwordSet.isEmpty()) {
+                response = ("<html>ERROR: No valid character set options were provided. Please use OPT parameter with valid values.</html>").getBytes();
+              } else {
+                // Generate the password
+                StringBuilder password = new StringBuilder(length);
+                for (int i = 0; i < length; i++) {
+                  password.append(passwordSet.charAt(rnd.nextInt(passwordSet.length())));
+                }
+
+                // Create the HTTP response
+                builder = new StringBuilder();
+                builder.append("HTTP/1.1 200 OK\nContent-Type: text/plain; charset=utf-8\n\n");
+                builder.append(password.toString());
+
+                response = builder.toString().getBytes();
+              }
+            }
+          } catch (IllegalArgumentException iae) {
+            response = ("<html>ERROR: Malformed query parameters. Please ensure your query parameters are correctly formatted.</html>").getBytes();
+          }
+        }
 
         else {
           // if the request is not recognized at all
@@ -340,6 +418,23 @@ class WebServer {
               URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
     }
     // {{"q", "hello world/me"}, {"bob","5"}}
+    return query_pairs;
+  }
+
+  /**
+   * Method to read in a password generator query and split it up correctly
+   * @param query parameters on path
+   * @return Map of all parameters and their specific values
+   * @throws UnsupportedEncodingException If the URLs aren't encoded with UTF-8
+   */
+  public static Map<String, String> passQuery(String query) throws UnsupportedEncodingException {
+    Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+    String[] pairs = query.split("&");
+    for (String pair : pairs) {
+      int idx = pair.indexOf("=");
+      if(idx == -1 || idx+1 >= pair.length()) continue;
+      query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+    }
     return query_pairs;
   }
 
