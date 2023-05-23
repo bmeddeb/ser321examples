@@ -1,5 +1,5 @@
 /*
-Simple Web Server in Java which allows you to call 
+Simple Web Server in Java which allows you to call
 localhost:9000/ and show you the root.html webpage from the www/root.html folder
 You can also do some other simple GET requests:
 1) /random shows you a random picture (well random from the set defined)
@@ -9,8 +9,8 @@ You can also do some other simple GET requests:
 5) /github?query=users/amehlhase316/repos (or other GitHub repo owners) will lead to receiving
    JSON which will for now only be printed in the console. See the todo below
 
-The reading of the request is done "manually", meaning no library that helps making things a 
-little easier is used. This is done so you see exactly how to pars the request and 
+The reading of the request is done "manually", meaning no library that helps making things a
+little easier is used. This is done so you see exactly how to pars the request and
 write a response back
 */
 
@@ -25,6 +25,9 @@ import java.util.Random;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.nio.charset.Charset;
+import org.json.JSONObject;
+import org.json.JSONArray;
+import org.json.JSONException;
 
 class WebServer {
   public static void main(String args[]) {
@@ -110,7 +113,7 @@ class WebServer {
         // find end of header("\n\n")
         if (line == null || line.equals(""))
           done = true;
-        // parse GET format ("GET <path> HTTP/1.1")
+          // parse GET format ("GET <path> HTTP/1.1")
         else if (line.startsWith("GET")) {
           int firstSpace = line.indexOf(" ");
           int secondSpace = line.indexOf(" ", firstSpace + 1);
@@ -194,51 +197,109 @@ class WebServer {
             builder.append("File not found: " + file);
           }
         } else if (request.contains("multiply?")) {
-          // This multiplies two numbers, there is NO error handling, so when
-          // wrong data is given this just crashes
-
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-          // extract path parameters
           query_pairs = splitQuery(request.replace("multiply?", ""));
 
-          // extract required fields from parameters
-          Integer num1 = Integer.parseInt(query_pairs.get("num1"));
-          Integer num2 = Integer.parseInt(query_pairs.get("num2"));
+          if (!query_pairs.containsKey("num1") || !query_pairs.containsKey("num2")) {
+            builder.append("HTTP/1.1 400 Bad Request\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("Both num1 and num2 parameters are required.");
+          } else {
+            try {
+              Integer num1 = Integer.parseInt(query_pairs.get("num1"));
+              Integer num2 = Integer.parseInt(query_pairs.get("num2"));
 
-          // do math
-          Integer result = num1 * num2;
+              Integer result = num1 * num2;
 
-          // Generate response
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Result is: " + result);
-
-          // TODO: Include error handling here with a correct error code and
-          // a response that makes sense
-
-        } else if (request.contains("github?")) {
-          // pulls the query from the request and runs it with GitHub's REST API
-          // check out https://docs.github.com/rest/reference/
-          //
-          // HINT: REST is organized by nesting topics. Figure out the biggest one first,
-          //     then drill down to what you care about
-          // "Owner's repo is named RepoName. Example: find RepoName's contributors" translates to
-          //     "/repos/OWNERNAME/REPONAME/contributors"
-
+              builder.append("HTTP/1.1 200 OK\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("Result is: " + result);
+            } catch (NumberFormatException e) {
+              builder.append("HTTP/1.1 400 Bad Request\n");
+              builder.append("Content-Type: text/html; charset=utf-8\n");
+              builder.append("\n");
+              builder.append("Both num1 and num2 must be valid integers.");
+            }
+          }
+        }
+        else if (request.contains("github?")) {
+          // Pulls the query from the request and runs it with GitHub's REST API
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
           query_pairs = splitQuery(request.replace("github?", ""));
           String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
-          System.out.println(json);
 
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Check the todos mentioned in the Java source file");
           // TODO: Parse the JSON returned by your fetch and create an appropriate
           // response based on what the assignment document asks for
 
-        } else {
+          try {
+            // Start parsing JSON
+            JSONArray jsonArray = new JSONArray(json);
+            builder = new StringBuilder();
+
+            for (int i = 0; i < jsonArray.length(); i++) {
+              JSONObject jsonObject = jsonArray.getJSONObject(i);
+
+              // Extract required details
+              String fullName = jsonObject.getString("full_name");
+              int id = jsonObject.getInt("id");
+
+              String ownerLogin = jsonObject.getJSONObject("owner").getString("login");
+
+              // Append details to builder
+              builder.append("Full Name: ").append(fullName).append("<br>");
+              builder.append("ID: ").append(id).append("<br>");
+              builder.append("Owner Login: ").append(ownerLogin).append("<br>");
+              builder.append("<hr>");
+            }
+
+            builder.insert(0, "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n");
+
+            response = builder.toString().getBytes();
+
+          } catch (JSONException e) {
+            e.printStackTrace();
+            response = ("<html>ERROR: " + e.getMessage() + "</html>").getBytes();
+          }
+        }
+        else if (request.contains("githubActivity?")) {
+          // Pulls the user from the request and runs it with GitHub's REST API
+          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+          query_pairs = splitQuery(request.replace("githubActivity?", ""));
+          String json = fetchURL("https://api.github.com/users/" + query_pairs.get("user") + "/events/public");
+
+          // TODO: Parse the JSON returned by your fetch and create an appropriate
+          // response based on what the assignment document asks for
+
+          try {
+            // Start parsing JSON
+            JSONArray jsonArray = new JSONArray(json);
+            builder = new StringBuilder();
+
+            for (int i = 0; i < jsonArray.length(); i++) {
+              JSONObject jsonObject = jsonArray.getJSONObject(i);
+
+              // Extract required details
+              String type = jsonObject.getString("type");
+              String repoName = jsonObject.getJSONObject("repo").getString("name");
+
+              // Append details to builder
+              builder.append("Type: ").append(type).append("<br>");
+              builder.append("Repo: ").append(repoName).append("<br>");
+              builder.append("<hr>");
+            }
+
+            builder.insert(0, "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n");
+
+            response = builder.toString().getBytes();
+
+          } catch (JSONException e) {
+            e.printStackTrace();
+            response = ("<html>ERROR: " + e.getMessage() + "</html>").getBytes();
+          }
+        }
+        else {
           // if the request is not recognized at all
 
           builder.append("HTTP/1.1 400 Bad Request\n");
@@ -272,7 +333,7 @@ class WebServer {
     for (String pair : pairs) {
       int idx = pair.indexOf("=");
       query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"),
-          URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+              URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
     }
     // {{"q", "hello world/me"}, {"bob","5"}}
     return query_pairs;
@@ -330,7 +391,7 @@ class WebServer {
    * a method to make a web request. Note that this method will block execution
    * for up to 20 seconds while the request is being satisfied. Better to use a
    * non-blocking request.
-   * 
+   *
    * @param aUrl the String indicating the query url for the OMDb api search
    * @return the String result of the http request.
    *
