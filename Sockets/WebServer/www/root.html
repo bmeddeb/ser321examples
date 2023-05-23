@@ -1,15 +1,18 @@
 <html>
-	<head>
-		<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
-	</head>
-	<body>
-		<h3>You can make the following GET requests<h3>
-		<ul>
-			<li>/file/sample.html -- returns the content of the file sample.html</li>
-			<li>/json -- returns a json of the /random request</a></li>
-			<li>/random -- returns index.html</a></li>
-		</ul>
-		<h3>File Structure in www (you can use /file/www/FILENAME):</h3>
-		${links}
-	</body>
+<head>
+	<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+</head>
+<body>
+<h3>You can make the following GET requests<h3>
+	<ul>
+		<li>/file/sample.html -- returns the content of the file sample.html</li>
+		<li>/json -- returns a json of the /random request</li>
+		<li>/random -- returns index.html</li>
+		<li>/multiply?num1=VALUE1&num2=VALUE2 -- multiplies the value of num1 and num2. Replace VALUE1 and VALUE2 with the numbers you want to multiply</li>
+		<li>/github?query=users/USERNAME/repos -- returns Github profile data for the specified user. Replace USERNAME with the Github username.<br> Example: <a href="/github?query=users/amehlhase316/repos" target="_blank">/github?query=users/amehlhase316/repos</a></li>
+		<li>/githubActivity?user=USERNAME -- returns the Github activity for the specified user. Replace USERNAME with the Github username.<br> Example: <a href="/githubActivity?user=amehlhase316" target="_blank">/githubActivity?user=amehlhase316</a></li>
+	</ul>
+	<h3>File Structure in www (you can use /file/www/FILENAME):</h3>
+	${links}
+</body>
 </html>
