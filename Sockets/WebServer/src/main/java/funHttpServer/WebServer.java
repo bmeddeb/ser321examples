@@ -18,12 +18,9 @@ package funHttpServer;
 
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Random;
-import java.util.Map;
-import java.util.LinkedHashMap;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.nio.charset.Charset;
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -269,13 +266,13 @@ class WebServer {
           query_pairs = splitQuery(request.replace("githubActivity?", ""));
           String json = fetchURL("https://api.github.com/users/" + query_pairs.get("user") + "/events/public");
 
-          // TODO: Parse the JSON returned by your fetch and create an appropriate
-          // response based on what the assignment document asks for
-
           try {
             // Start parsing JSON
             JSONArray jsonArray = new JSONArray(json);
             builder = new StringBuilder();
+
+            DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH);
+            DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss", Locale.ENGLISH);
 
             for (int i = 0; i < jsonArray.length(); i++) {
               JSONObject jsonObject = jsonArray.getJSONObject(i);
@@ -284,9 +281,15 @@ class WebServer {
               String type = jsonObject.getString("type");
               String repoName = jsonObject.getJSONObject("repo").getString("name");
 
+              // Extract and format date of event
+              String eventDate = jsonObject.getString("created_at");
+              LocalDateTime date = LocalDateTime.parse(eventDate, inputFormatter);
+              String formattedDate = date.format(outputFormatter);
+
               // Append details to builder
               builder.append("Type: ").append(type).append("<br>");
               builder.append("Repo: ").append(repoName).append("<br>");
+              builder.append("Date: ").append(formattedDate).append("<br>"); // use formatted date
               builder.append("<hr>");
             }
 
@@ -299,6 +302,7 @@ class WebServer {
             response = ("<html>ERROR: " + e.getMessage() + "</html>").getBytes();
           }
         }
+
         else {
           // if the request is not recognized at all
 
