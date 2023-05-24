@@ -233,63 +233,64 @@ class WebServer {
             // Pulls the query from the request and runs it with GitHub's REST API
             Map<String, String> query_pairs = new LinkedHashMap<String, String>();
             query_pairs = splitQuery(request.replace("github?", ""));
-            String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
 
-            // Check if the json is null or empty
-            if (json == null || json.trim().isEmpty()) {
-              throw new IOException("Invalid response from GitHub API.");
+            if (!query_pairs.containsKey("query") || query_pairs.get("query").isBlank()) {
+              response = ("HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: Query parameter is missing or blank.</html>").getBytes();
+            } else {
+              try {
+                String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
+
+                // Check if the json is null or empty
+                if (json == null || json.trim().isEmpty()) {
+                  throw new IOException("Invalid response from GitHub API.");
+                }
+
+                // Start parsing JSON
+                JSONArray jsonArray = new JSONArray(json);
+                builder = new StringBuilder();
+
+                for (int i = 0; i < jsonArray.length(); i++) {
+                  JSONObject jsonObject = jsonArray.getJSONObject(i);
+
+                  // Extract required details
+                  String fullName = jsonObject.getString("full_name");
+                  int id = jsonObject.getInt("id");
+                  String ownerLogin = jsonObject.getJSONObject("owner").getString("login");
+
+                  // Append details to builder
+                  builder.append("Full Name: ").append(fullName).append("<br>");
+                  builder.append("ID: ").append(id).append("<br>");
+                  builder.append("Owner Login: ").append(ownerLogin).append("<br>");
+                  builder.append("<hr>");
+                }
+
+                builder.insert(0, "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n");
+                response = builder.toString().getBytes();
+
+              } catch (MalformedURLException e) {
+                response = ("HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: Malformed URL - " + e.getMessage() + "</html>").getBytes();
+              } catch (JSONException e) {
+                response = ("HTTP/1.1 500 Internal Server Error\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: Invalid JSON format - " + e.getMessage() + "</html>").getBytes();
+              } catch (IOException e) {
+                response = ("HTTP/1.1 503 Service Unavailable\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: Could not reach GitHub API - " + e.getMessage() + "</html>").getBytes();
+              } catch (UserNotFoundException e) {
+                response = ("HTTP/1.1 404 Not Found\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: The requested user does not exist on GitHub.</html>").getBytes();
+              } catch (BadRequestException e) {
+                response = ("HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: Bad request - " + e.getMessage() + "</html>").getBytes();
+              }
             }
-
-            // Start parsing JSON
-            JSONArray jsonArray = new JSONArray(json);
-            builder = new StringBuilder();
-
-            for (int i = 0; i < jsonArray.length(); i++) {
-              JSONObject jsonObject = jsonArray.getJSONObject(i);
-
-              // Extract required details
-              String fullName = jsonObject.getString("full_name");
-              int id = jsonObject.getInt("id");
-              String ownerLogin = jsonObject.getJSONObject("owner").getString("login");
-
-              // Append details to builder
-              builder.append("Full Name: ").append(fullName).append("<br>");
-              builder.append("ID: ").append(id).append("<br>");
-              builder.append("Owner Login: ").append(ownerLogin).append("<br>");
-              builder.append("<hr>");
-            }
-
-            builder.insert(0, "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n");
-            response = builder.toString().getBytes();
-
-          } catch (JSONException e) {
-            e.printStackTrace();
-            builder = new StringBuilder();
-            builder.append("HTTP/1.1 500 Internal Server Error\n");
-            builder.append("Content-Type: text/html; charset=utf-8\n");
-            builder.append("\n");
-            builder.append("<html>ERROR: Invalid JSON format - " + e.getMessage() + "</html>");
-            response = builder.toString().getBytes();
-          } catch (IOException e) {
-            e.printStackTrace();
-            builder = new StringBuilder();
-            builder.append("HTTP/1.1 503 Service Unavailable\n");
-            builder.append("Content-Type: text/html; charset=utf-8\n");
-            builder.append("\n");
-            builder.append("<html>ERROR: Could not reach GitHub API - " + e.getMessage() + "</html>");
-            response = builder.toString().getBytes();
-          } catch (UserNotFoundException e) {
-            throw new RuntimeException(e);
-          } catch (BadRequestException e) {
-            throw new RuntimeException(e);
+          } catch (Exception e) {
+            // This is a catch-all for any other exceptions.
+            response = ("HTTP/1.1 500 Internal Server Error\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: " + e.getMessage() + "</html>").getBytes();
           }
-        } else if (request.contains("githubActivity?")) {
+        }
+        else if (request.contains("githubActivity?")) {
           // Pulls the user from the request and runs it with GitHub's REST API
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
           query_pairs = splitQuery(request.replace("githubActivity?", ""));
 
-          if (!query_pairs.containsKey("user")) {
-            response = ("HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: User parameter is missing.</html>").getBytes();
+          if (!query_pairs.containsKey("user") || query_pairs.get("user").isBlank()) {
+            response = ("HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: User parameter is missing or blank.</html>").getBytes();
           } else {
             try {
               String json = fetchURL("https://api.github.com/users/" + query_pairs.get("user") + "/events/public");
@@ -333,6 +334,7 @@ class WebServer {
             }
           }
         }
+
         else if (request.contains("pass?")) {
           try {
             // Pulls the parameters from the request
