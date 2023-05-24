@@ -1,18 +1,52 @@
+<!DOCTYPE html>
 <html>
 <head>
+	<title>API Endpoint Explorer</title>
 	<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+	<link rel="stylesheet" type="text/css" href="https://ben.meddeb.me/styles.css">
 </head>
 <body>
-<h3>You can make the following GET requests<h3>
-	<ul>
-		<li>/file/sample.html -- returns the content of the file sample.html</li>
-		<li>/json -- returns a json of the /random request</li>
-		<li>/random -- returns index.html</li>
-		<li>/multiply?num1=VALUE1&num2=VALUE2 -- multiplies the value of num1 and num2. Replace VALUE1 and VALUE2 with the numbers you want to multiply</li>
-		<li>/github?query=users/USERNAME/repos -- returns Github profile data for the specified user. Replace USERNAME with the Github username.<br> Example: <a href="/github?query=users/amehlhase316/repos" target="_blank">/github?query=users/amehlhase316/repos</a></li>
-		<li>/githubActivity?user=USERNAME -- returns the Github activity for the specified user. Replace USERNAME with the Github username.<br> Example: <a href="/githubActivity?user=amehlhase316" target="_blank">/githubActivity?user=amehlhase316</a></li>
-	</ul>
+<div class="center">
+	<h1>FunWebServer End Points:</h1>
+	<table>
+		<tr>
+			<th>Title</th>
+			<th>Endpoint</th>
+		</tr>
+		<tr>
+			<td class="title">Random Picture</td>
+			<td class="endpoint"><a href="/random" target="_blank">/random</a>
+				<div class="description">This endpoint responds with a random number between 1 and 10 when a GET request is made.</div></td>
+		</tr>
+		<tr>
+			<td class="title">JSON Greetings Provider</td>
+			<td class="endpoint"><a href="/json" target="_blank">/json</a>
+				<div class="description">This endpoint responds with a JSON object that contains the message "Hello World" when a GET request is made.</div></td>
+		</tr>
+		<tr>
+			<td class="title">Integer Multiplier</td>
+			<td class="endpoint"><a href="/multiply?num1=5&num2=10" target="_blank">/multiply?num1=5&num2=10</a>
+				<div class="description">This endpoint allows a user to multiply two numbers. The user provides the numbers as query parameters num1 and num2 in the URL, and the server responds with the product of these two numbers.</div></td>
+		</tr>
+		<tr>
+			<td class="title">GitHub Lister</td>
+			<td class="endpoint"><a href="/github?query=users/amehlhase316/repos" target="_blank">/github?query=users/username/repos</a>
+				<div class="description">This endpoint fetches a list of repositories for a specified user from the GitHub API. The user replaces username with the desired GitHub user's username. The server then makes a request to the GitHub API and prints out the name and URL of each repository.</div></td>
+		</tr>
+		<tr>
+			<td class="title">GitHub Events Reporter</td>
+			<td class="endpoint"><a href="/githubActivity?user=amehlhase316" target="_blank">/githubActivity?user=&lt;username&gt;</a>
+
+				<div class="description">This endpoint fetches a list of public events for a specified user from the GitHub API. The user replaces username with the desired GitHub user's username. The server then makes a request to the GitHub API and prints out the type of each event along with the corresponding repository name and URL. This can be used to see the recent activity of a GitHub user.</div></td>
+		</tr>
+		<tr>
+			<td class="title">Password Generator</td>
+			<td class="endpoint"><a href="/pass?l=24&OPT=1" target="_blank">/pass?l=<Length>&OPT=&lt1 2 or 3&gt</a>
+				<div class="description">The "/pass" endpoint accepts two query parameters: l (length of password), and OPT (exclude certain characters). It generates and returns a password based on these parameters.: 1: Exclude uppercase letters. 2: Exclude special characters. 3: Exclude numbers. Users can also combine the options to exclude multiple character types. For example, the input "31" would exclude both numbers and uppercase letters from the password. This class is responsible for processing the HTTP request, validating the query parameters, generating the password according to the user's specifications, and returning the password as the HTTP response. It employs randomness and a pre-set character set to generate the password. </div></td>
+		</tr>
+	</table>
 	<h3>File Structure in www (you can use /file/www/FILENAME):</h3>
-	${links}
+	<div id="links"></div>
+</div>
 </body>
 </html>
