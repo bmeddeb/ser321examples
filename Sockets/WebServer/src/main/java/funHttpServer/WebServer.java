@@ -21,6 +21,7 @@ import java.net.*;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.nio.charset.Charset;
 import org.json.JSONObject;
@@ -34,6 +35,7 @@ class WebServer {
 
   /**
    * Main thread
+   *
    * @param port to listen on
    */
   public WebServer(int port) {
@@ -83,12 +85,14 @@ class WebServer {
   private static final SecureRandom rnd = new SecureRandom();
 
   int length = 6; // default length for password generator
+
   /**
    * Reads in socket stream and generates a response
+   *
    * @param inStream HTTP input stream from socket
    * @return the byte encoded HTTP response
    */
-  public byte[] createResponse(InputStream inStream) {
+  public byte[] createResponse(InputStream inStream) throws IOException {
 
 
     byte[] response = null;
@@ -224,8 +228,7 @@ class WebServer {
               builder.append("Both num1 and num2 must be valid integers.");
             }
           }
-        }
-        else if (request.contains("github?")) {
+        } else if (request.contains("github?")) {
           try {
             // Pulls the query from the request and runs it with GitHub's REST API
             Map<String, String> query_pairs = new LinkedHashMap<String, String>();
@@ -275,49 +278,59 @@ class WebServer {
             builder.append("\n");
             builder.append("<html>ERROR: Could not reach GitHub API - " + e.getMessage() + "</html>");
             response = builder.toString().getBytes();
+          } catch (UserNotFoundException e) {
+            throw new RuntimeException(e);
+          } catch (BadRequestException e) {
+            throw new RuntimeException(e);
           }
-        }
-
-        else if (request.contains("githubActivity?")) {
+        } else if (request.contains("githubActivity?")) {
           // Pulls the user from the request and runs it with GitHub's REST API
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
           query_pairs = splitQuery(request.replace("githubActivity?", ""));
-          String json = fetchURL("https://api.github.com/users/" + query_pairs.get("user") + "/events/public");
 
-          try {
-            // Start parsing JSON
-            JSONArray jsonArray = new JSONArray(json);
-            builder = new StringBuilder();
+          if (!query_pairs.containsKey("user")) {
+            response = ("HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: User parameter is missing.</html>").getBytes();
+          } else {
+            try {
+              String json = fetchURL("https://api.github.com/users/" + query_pairs.get("user") + "/events/public");
 
-            DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH);
-            DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss", Locale.ENGLISH);
+              // Start parsing JSON
+              JSONArray jsonArray = new JSONArray(json);
+              builder = new StringBuilder();
 
-            for (int i = 0; i < jsonArray.length(); i++) {
-              JSONObject jsonObject = jsonArray.getJSONObject(i);
+              DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH);
+              DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss", Locale.ENGLISH);
 
-              // Extract required details
-              String type = jsonObject.getString("type");
-              String repoName = jsonObject.getJSONObject("repo").getString("name");
+              for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject jsonObject = jsonArray.getJSONObject(i);
 
-              // Extract and format date of event
-              String eventDate = jsonObject.getString("created_at");
-              LocalDateTime date = LocalDateTime.parse(eventDate, inputFormatter);
-              String formattedDate = date.format(outputFormatter);
+                // Extract required details
+                String type = jsonObject.getString("type");
+                String repoName = jsonObject.getJSONObject("repo").getString("name");
 
-              // Append details to builder
-              builder.append("Type: ").append(type).append("<br>");
-              builder.append("Repo: ").append(repoName).append("<br>");
-              builder.append("Date: ").append(formattedDate).append("<br>"); // use formatted date
-              builder.append("<hr>");
+                // Extract and format date of event
+                String eventDate = jsonObject.getString("created_at");
+                LocalDateTime date = LocalDateTime.parse(eventDate, inputFormatter);
+                String formattedDate = date.format(outputFormatter);
+
+                // Append details to builder
+                builder.append("Type: ").append(type).append("<br>");
+                builder.append("Repo: ").append(repoName).append("<br>");
+                builder.append("Date: ").append(formattedDate).append("<br>"); // use formatted date
+                builder.append("<hr>");
+              }
+
+              builder.insert(0, "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n");
+
+              response = builder.toString().getBytes();
+
+            } catch (BadRequestException e) {
+              response = ("HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: Bad request - " + e.getMessage() + "</html>").getBytes();
+            } catch (UserNotFoundException e) {
+              response = ("HTTP/1.1 404 Not Found\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: The requested user does not exist on GitHub.</html>").getBytes();
+            } catch (JSONException | DateTimeParseException e) {
+              response = ("HTTP/1.1 500 Internal Server Error\nContent-Type: text/html; charset=utf-8\n\n<html>ERROR: " + e.getMessage() + "</html>").getBytes();
             }
-
-            builder.insert(0, "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n");
-
-            response = builder.toString().getBytes();
-
-          } catch (JSONException e) {
-            e.printStackTrace();
-            response = ("<html>ERROR: " + e.getMessage() + "</html>").getBytes();
           }
         }
         else if (request.contains("pass?")) {
@@ -393,9 +406,7 @@ class WebServer {
           } catch (IllegalArgumentException iae) {
             response = ("<html>ERROR: Malformed query parameters. Please ensure your query parameters are correctly formatted.</html>").getBytes();
           }
-        }
-
-        else {
+        } else {
           // if the request is not recognized at all
 
           builder.append("HTTP/1.1 400 Bad Request\n");
@@ -417,6 +428,7 @@ class WebServer {
 
   /**
    * Method to read in a query and split it up correctly
+   *
    * @param query parameters on path
    * @return Map of all parameters and their specific values
    * @throws UnsupportedEncodingException If the URLs aren't encoded with UTF-8
@@ -437,6 +449,7 @@ class WebServer {
 
   /**
    * Method to read in a password generator query and split it up correctly
+   *
    * @param query parameters on path
    * @return Map of all parameters and their specific values
    * @throws UnsupportedEncodingException If the URLs aren't encoded with UTF-8
@@ -446,7 +459,7 @@ class WebServer {
     String[] pairs = query.split("&");
     for (String pair : pairs) {
       int idx = pair.indexOf("=");
-      if(idx == -1 || idx+1 >= pair.length()) continue;
+      if (idx == -1 || idx + 1 >= pair.length()) continue;
       query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
     }
     return query_pairs;
@@ -454,6 +467,7 @@ class WebServer {
 
   /**
    * Builds an HTML file list from the www directory
+   *
    * @return HTML string output of file list
    */
   public static String buildFileList() {
@@ -500,40 +514,68 @@ class WebServer {
   }
 
   /**
-   *
    * a method to make a web request. Note that this method will block execution
    * for up to 20 seconds while the request is being satisfied. Better to use a
    * non-blocking request.
-   *
+   * Updated to throw UserNotFoundException if the user is not found in github API
+   * I've replaced URLConnection with HttpURLConnection. I've added a check for the HTTP response status code right
+   * after the connection is opened. If the status code is HTTP_NOT_FOUND (which corresponds to a 404 status code),
+   * a UserNotFoundException is thrown. If the status code is anything other than HTTP_OK (which corresponds to a 200 status code),
+   * an IOException is thrown.
+   *  added  handling for a 400 Bad Request error. If the status code is HTTP_BAD_REQUEST (which corresponds to a 400 status code),
    * @param aUrl the String indicating the query url for the OMDb api search
    * @return the String result of the http request.
-   *
    **/
-  public String fetchURL(String aUrl) {
+  public String fetchURL(String aUrl) throws IOException, UserNotFoundException, BadRequestException {
     StringBuilder sb = new StringBuilder();
-    URLConnection conn = null;
-    InputStreamReader in = null;
+
     try {
       URL url = new URL(aUrl);
-      conn = url.openConnection();
+      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
       if (conn != null)
         conn.setReadTimeout(20 * 1000); // timeout in 20 seconds
-      if (conn != null && conn.getInputStream() != null) {
-        in = new InputStreamReader(conn.getInputStream(), Charset.defaultCharset());
-        BufferedReader br = new BufferedReader(in);
-        if (br != null) {
-          int ch;
-          // read the next character until end of reader
-          while ((ch = br.read()) != -1) {
-            sb.append((char) ch);
-          }
-          br.close();
+
+      int status = conn.getResponseCode();
+
+      // Handle specific HTTP response status codes
+      if (status == HttpURLConnection.HTTP_NOT_FOUND) {
+        throw new UserNotFoundException("User not found");
+      } else if (status == HttpURLConnection.HTTP_BAD_REQUEST) {
+        throw new BadRequestException("Bad request");
+      } else if (status != HttpURLConnection.HTTP_OK) {
+        throw new IOException("Received HTTP error: " + status);
+      }
+
+      InputStreamReader in = new InputStreamReader(conn.getInputStream(), Charset.defaultCharset());
+      BufferedReader br = new BufferedReader(in);
+      if (br != null) {
+        int ch;
+        // read the next character until end of reader
+        while ((ch = br.read()) != -1) {
+          sb.append((char) ch);
         }
+        br.close();
       }
       in.close();
-    } catch (Exception ex) {
+    } catch (IOException ex) {
       System.out.println("Exception in url request:" + ex.getMessage());
+      throw ex;
     }
     return sb.toString();
   }
+
+
+  public class UserNotFoundException extends Exception {
+    public UserNotFoundException(String message) {
+      super(message);
+    }
+  }
+
+  public class BadRequestException extends Exception {
+    public BadRequestException(String message) {
+      super(message);
+    }
+  }
+
 }
