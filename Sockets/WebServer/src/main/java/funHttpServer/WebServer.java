@@ -226,15 +226,17 @@ class WebServer {
           }
         }
         else if (request.contains("github?")) {
-          // Pulls the query from the request and runs it with GitHub's REST API
-          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-          query_pairs = splitQuery(request.replace("github?", ""));
-          String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
-
-          // TODO: Parse the JSON returned by your fetch and create an appropriate
-          // response based on what the assignment document asks for
-
           try {
+            // Pulls the query from the request and runs it with GitHub's REST API
+            Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+            query_pairs = splitQuery(request.replace("github?", ""));
+            String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
+
+            // Check if the json is null or empty
+            if (json == null || json.trim().isEmpty()) {
+              throw new IOException("Invalid response from GitHub API.");
+            }
+
             // Start parsing JSON
             JSONArray jsonArray = new JSONArray(json);
             builder = new StringBuilder();
@@ -245,7 +247,6 @@ class WebServer {
               // Extract required details
               String fullName = jsonObject.getString("full_name");
               int id = jsonObject.getInt("id");
-
               String ownerLogin = jsonObject.getJSONObject("owner").getString("login");
 
               // Append details to builder
@@ -256,14 +257,27 @@ class WebServer {
             }
 
             builder.insert(0, "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n");
-
             response = builder.toString().getBytes();
 
           } catch (JSONException e) {
             e.printStackTrace();
-            response = ("<html>ERROR: " + e.getMessage() + "</html>").getBytes();
+            builder = new StringBuilder();
+            builder.append("HTTP/1.1 500 Internal Server Error\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("<html>ERROR: Invalid JSON format - " + e.getMessage() + "</html>");
+            response = builder.toString().getBytes();
+          } catch (IOException e) {
+            e.printStackTrace();
+            builder = new StringBuilder();
+            builder.append("HTTP/1.1 503 Service Unavailable\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("<html>ERROR: Could not reach GitHub API - " + e.getMessage() + "</html>");
+            response = builder.toString().getBytes();
           }
         }
+
         else if (request.contains("githubActivity?")) {
           // Pulls the user from the request and runs it with GitHub's REST API
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
