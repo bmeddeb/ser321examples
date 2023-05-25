@@ -416,7 +416,6 @@ class WebServer {
           builder.append("\n");
           builder.append("I am not sure what you want me to do...");
         }
-
         // Output
         response = builder.toString().getBytes();
       }
@@ -566,18 +565,14 @@ class WebServer {
     }
     return sb.toString();
   }
-
-
   public class UserNotFoundException extends Exception {
     public UserNotFoundException(String message) {
       super(message);
     }
   }
-
   public class BadRequestException extends Exception {
     public BadRequestException(String message) {
       super(message);
     }
   }
-
 }
