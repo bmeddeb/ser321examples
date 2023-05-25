@@ -16,20 +16,22 @@ write a response back
 
 package funHttpServer;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.*;
 import java.net.*;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
-import java.nio.charset.Charset;
-import org.json.JSONObject;
-import org.json.JSONArray;
-import org.json.JSONException;
 
 class WebServer {
-  public static void main(String args[]) {
+  public static void main(String[] args) {
     WebServer server = new WebServer(9000);
   }
 
@@ -102,7 +104,7 @@ class WebServer {
 
       // Read from socket's input stream. Must use an
       // InputStreamReader to bridge from streams to a reader
-      in = new BufferedReader(new InputStreamReader(inStream, "UTF-8"));
+      in = new BufferedReader(new InputStreamReader(inStream, StandardCharsets.UTF_8));
 
       // Get header and save the request from the GET line:
       // example GET format: GET /index.html HTTP/1.1
@@ -400,7 +402,7 @@ class WebServer {
                 // Create the HTTP response
                 builder = new StringBuilder();
                 builder.append("HTTP/1.1 200 OK\nContent-Type: text/plain; charset=utf-8\n\n");
-                builder.append(password.toString());
+                builder.append(password);
 
                 response = builder.toString().getBytes();
               }
@@ -441,8 +443,8 @@ class WebServer {
     // ["q=hello+world%2Fme", "bob=5"]
     for (String pair : pairs) {
       int idx = pair.indexOf("=");
-      query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"),
-              URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+      query_pairs.put(URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8),
+              URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8));
     }
     // {{"q", "hello world/me"}, {"bob","5"}}
     return query_pairs;
@@ -461,7 +463,7 @@ class WebServer {
     for (String pair : pairs) {
       int idx = pair.indexOf("=");
       if (idx == -1 || idx + 1 >= pair.length()) continue;
-      query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+      query_pairs.put(URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8), URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8));
     }
     return query_pairs;
   }
@@ -500,7 +502,7 @@ class WebServer {
     FileInputStream file = new FileInputStream(f);
     ByteArrayOutputStream data = new ByteArrayOutputStream(file.available());
 
-    byte buffer[] = new byte[512];
+    byte[] buffer = new byte[512];
     int numRead = file.read(buffer);
     while (numRead > 0) {
       data.write(buffer, 0, numRead);
